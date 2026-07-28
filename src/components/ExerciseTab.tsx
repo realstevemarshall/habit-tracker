@@ -17,17 +17,18 @@ import { ProgressBar } from './ProgressBar';
 interface ExerciseTabProps {
   exercise: ExerciseConfig;
   entries: AppData['exercises'][keyof AppData['exercises']];
-  onAdd: (date: string, amount: number) => void;
+  onAdjust: (date: string, amount: number) => void;
 }
 
-export function ExerciseTab({ exercise, entries, onAdd }: ExerciseTabProps) {
+export function ExerciseTab({ exercise, entries, onAdjust }: ExerciseTabProps) {
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const yearEntries = getEntriesForTrackingYear(entries);
   const total = getTotalForEntries(yearEntries);
   const percent = getProgressPercent(total, exercise.yearlyTarget);
   const onTrack = isOnTrack(total, exercise.yearlyTarget);
   const chartData = buildChartData(entries, exercise.yearlyTarget);
-  const loggedToday = getAmountForDate(entries, selectedDate);
+  const loggedForDate = getAmountForDate(entries, selectedDate);
+  const delta = exercise.quickAdd;
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
@@ -78,18 +79,27 @@ export function ExerciseTab({ exercise, entries, onAdd }: ExerciseTabProps) {
             className="min-h-11 rounded-xl border border-border bg-background px-3 text-text outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           />
           <span className="text-xs text-muted">
-            {formatDisplayDate(selectedDate)} · {formatNumber(loggedToday)}{' '}
+            {formatDisplayDate(selectedDate)} · {formatNumber(loggedForDate)}{' '}
             {exercise.unit} logged
           </span>
         </label>
 
-        <button
-          type="button"
-          onClick={() => onAdd(selectedDate, exercise.quickAdd)}
-          className="min-h-12 rounded-xl bg-accent px-6 text-base font-semibold text-background transition-transform active:scale-[0.98] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-        >
-          +{exercise.quickAdd} {exercise.unit}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onAdjust(selectedDate, -delta)}
+            className="min-h-12 min-w-[4.5rem] rounded-xl border border-border bg-surface px-4 text-base font-semibold text-text transition-transform active:scale-[0.98] hover:border-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          >
+            −{delta}
+          </button>
+          <button
+            type="button"
+            onClick={() => onAdjust(selectedDate, delta)}
+            className="min-h-12 min-w-[4.5rem] rounded-xl bg-accent px-4 text-base font-semibold text-background transition-transform active:scale-[0.98] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          >
+            +{delta}
+          </button>
+        </div>
       </div>
     </section>
   );

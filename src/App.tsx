@@ -17,7 +17,7 @@ export default function App() {
     (exercise) => exercise.id === activeExercise,
   )!;
 
-  function addExerciseEntry(
+  function adjustExerciseEntry(
     exerciseId: ExerciseId,
     date: string,
     amount: number,
@@ -108,8 +108,8 @@ export default function App() {
           <ExerciseTab
             exercise={activeConfig}
             entries={data.exercises[activeExercise]}
-            onAdd={(date, amount) =>
-              addExerciseEntry(activeExercise, date, amount)
+            onAdjust={(date, amount) =>
+              adjustExerciseEntry(activeExercise, date, amount)
             }
           />
         </section>

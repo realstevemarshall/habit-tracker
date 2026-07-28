@@ -1,5 +1,7 @@
 import {
   BIRTHDAY_50,
+  HABIT_DAYS_IN_YEAR,
+  HABIT_YEARLY_GOAL,
   TRACKING_YEAR_END,
   TRACKING_YEAR_START,
   type ExerciseEntry,
@@ -192,6 +194,83 @@ export function getAmountForDate(
   return entries
     .filter((entry) => entry.date === dateKey)
     .reduce((sum, entry) => sum + entry.amount, 0);
+}
+
+export function getElapsedDaysInTrackingYear(asOf = new Date()): number {
+  const asOfKey = formatDateKey(asOf);
+  if (!isWithinTrackingYear(asOfKey)) {
+    if (parseDateKey(asOfKey) < TRACKING_YEAR_START) return 0;
+    return daysInTrackingYear();
+  }
+  return dayIndexInTrackingYear(asOfKey) + 1;
+}
+
+export function getTrackingYearDateKeys(upTo?: string): string[] {
+  const keys: string[] = [];
+  const endDate = upTo ? parseDateKey(upTo) : new Date();
+  const cappedEnd =
+    endDate > TRACKING_YEAR_END ? TRACKING_YEAR_END : endDate;
+  const cursor = new Date(TRACKING_YEAR_START);
+
+  while (cursor <= cappedEnd) {
+    keys.push(formatDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return keys;
+}
+
+export function getHabitCheckedCount(
+  habits: Record<string, Record<string, boolean>>,
+  habitId: string,
+  upTo?: string,
+): number {
+  return getTrackingYearDateKeys(upTo).filter(
+    (dateKey) => habits[dateKey]?.[habitId] === true,
+  ).length;
+}
+
+export function isHabitOnTrack(
+  habits: Record<string, Record<string, boolean>>,
+  habitId: string,
+  asOf = new Date(),
+): boolean {
+  const checked = getHabitCheckedCount(
+    habits,
+    habitId,
+    formatDateKey(asOf),
+  );
+  const elapsedDays = getElapsedDaysInTrackingYear(asOf);
+  const expected = (HABIT_YEARLY_GOAL / HABIT_DAYS_IN_YEAR) * elapsedDays;
+  return checked >= expected;
+}
+
+export function getDayHabitCompletionPercent(
+  habits: Record<string, Record<string, boolean>>,
+  dateKey: string,
+  habitCount: number,
+): number {
+  if (habitCount === 0) return 0;
+  const dayHabits = habits[dateKey] ?? {};
+  const checked = Object.values(dayHabits).filter(Boolean).length;
+  return (checked / habitCount) * 100;
+}
+
+export function getYearToDateHabitCompletionPercent(
+  habits: Record<string, Record<string, boolean>>,
+  habitCount: number,
+  asOf = new Date(),
+): number {
+  const elapsedDays = getElapsedDaysInTrackingYear(asOf);
+  if (elapsedDays === 0 || habitCount === 0) return 0;
+
+  const dateKeys = getTrackingYearDateKeys(formatDateKey(asOf));
+  const checked = dateKeys.reduce((sum, dateKey) => {
+    const dayHabits = habits[dateKey] ?? {};
+    return sum + Object.values(dayHabits).filter(Boolean).length;
+  }, 0);
+
+  return (checked / (elapsedDays * habitCount)) * 100;
 }
 
 export type { ExerciseId };

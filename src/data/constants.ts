@@ -43,6 +43,9 @@ export const TRACKING_YEAR_START = new Date(2026, 6, 24);
 export const TRACKING_YEAR_END = new Date(2027, 6, 23);
 export const BIRTHDAY_50 = new Date(2027, 6, 24);
 export const STORAGE_KEY = 'habit-tracker-data-v1';
+export const HABIT_DAYS_IN_YEAR = 365;
+export const HABIT_YEARLY_GOAL = 300;
+export const HABIT_COMPLETION_TARGET = 80;
 
 export const EXERCISES: ExerciseConfig[] = [
   {
