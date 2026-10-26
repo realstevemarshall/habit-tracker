@@ -1,12 +1,16 @@
 import {
   BIRTHDAY_50,
-  HABIT_DAYS_IN_YEAR,
-  HABIT_YEARLY_GOAL,
-  TRACKING_YEAR_END,
-  TRACKING_YEAR_START,
+  HABIT_COMPLETION_TARGET,
+  HABIT_GOAL_DAYS,
+  TRACKING_DAYS,
+  TRACKING_END,
+  TRACKING_START,
+  type AppData,
   type ExerciseEntry,
   type ExerciseId,
 } from '../data/constants';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function formatDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -24,42 +28,55 @@ export function todayKey(): string {
   return formatDateKey(new Date());
 }
 
-export function isWithinTrackingYear(dateKey: string): boolean {
+export function addDays(dateKey: string, days: number): string {
   const date = parseDateKey(dateKey);
-  return date >= TRACKING_YEAR_START && date <= TRACKING_YEAR_END;
+  date.setDate(date.getDate() + days);
+  return formatDateKey(date);
 }
 
-export function daysInTrackingYear(): number {
-  const ms =
-    TRACKING_YEAR_END.getTime() -
-    TRACKING_YEAR_START.getTime() +
-    24 * 60 * 60 * 1000;
-  return Math.round(ms / (24 * 60 * 60 * 1000));
+/** Whole calendar days from a to b (DST-safe). */
+export function daysBetween(a: Date, b: Date): number {
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((utcB - utcA) / DAY_MS);
 }
 
-export function dayIndexInTrackingYear(dateKey: string): number {
-  const date = parseDateKey(dateKey);
-  const diff =
-    date.getTime() -
-    TRACKING_YEAR_START.getTime() +
-    date.getTimezoneOffset() * 60 * 1000 -
-    (TRACKING_YEAR_START.getTimezoneOffset() * 60 * 1000);
-  return Math.floor(diff / (24 * 60 * 60 * 1000));
+export const TRACKING_START_KEY = formatDateKey(TRACKING_START);
+export const TRACKING_END_KEY = formatDateKey(TRACKING_END);
+
+export function isWithinTrackingPeriod(dateKey: string): boolean {
+  return dateKey >= TRACKING_START_KEY && dateKey <= TRACKING_END_KEY;
+}
+
+/** Keep a date inside the tracking period (used for date-picker defaults). */
+export function clampToTrackingPeriod(dateKey: string): string {
+  if (dateKey < TRACKING_START_KEY) return TRACKING_START_KEY;
+  if (dateKey > TRACKING_END_KEY) return TRACKING_END_KEY;
+  return dateKey;
+}
+
+export function daysInTrackingPeriod(): number {
+  return TRACKING_DAYS;
+}
+
+export function dayIndexInTrackingPeriod(dateKey: string): number {
+  return daysBetween(TRACKING_START, parseDateKey(dateKey));
+}
+
+export function formatShortDate(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+export function trackingPeriodLabel(): string {
+  return `${formatShortDate(TRACKING_START)} – ${formatShortDate(TRACKING_END)}`;
 }
 
 export function daysRemainingUntilBirthday(fromDate = new Date()): number {
-  const start = new Date(
-    fromDate.getFullYear(),
-    fromDate.getMonth(),
-    fromDate.getDate(),
-  );
-  const end = new Date(
-    BIRTHDAY_50.getFullYear(),
-    BIRTHDAY_50.getMonth(),
-    BIRTHDAY_50.getDate(),
-  );
-  const diff = end.getTime() - start.getTime();
-  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+  return Math.max(0, daysBetween(fromDate, BIRTHDAY_50));
 }
 
 export function getWeekKey(dateKey: string): string {
@@ -69,6 +86,12 @@ export function getWeekKey(dateKey: string): string {
   const monday = new Date(date);
   monday.setDate(date.getDate() + diff);
   return formatDateKey(monday);
+}
+
+/** A week (keyed by its Monday) counts if any of its days fall in the period. */
+export function isWeekWithinTrackingPeriod(weekKey: string): boolean {
+  const sunday = addDays(weekKey, 6);
+  return sunday >= TRACKING_START_KEY && weekKey <= TRACKING_END_KEY;
 }
 
 export function formatDisplayDate(dateKey: string): string {
@@ -87,14 +110,16 @@ export function formatNumber(value: number, decimals = 0): string {
   });
 }
 
-export function getEntriesForTrackingYear(
+export function getEntriesForTrackingPeriod(
   entries: ExerciseEntry[],
 ): ExerciseEntry[] {
-  return entries.filter((entry) => isWithinTrackingYear(entry.date));
+  return entries.filter((entry) => isWithinTrackingPeriod(entry.date));
 }
 
 export function getTotalForEntries(entries: ExerciseEntry[]): number {
-  return entries.reduce((sum, entry) => sum + entry.amount, 0);
+  // Round to avoid floating-point noise from 0.5-mile adds.
+  const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+  return Math.round(total * 100) / 100;
 }
 
 export function getCumulativeByDate(
@@ -121,27 +146,25 @@ export interface ChartPoint {
 
 export function buildChartData(
   entries: ExerciseEntry[],
-  yearlyTarget: number,
+  goalTarget: number,
 ): ChartPoint[] {
-  const yearEntries = getEntriesForTrackingYear(entries);
-  const cumulative = getCumulativeByDate(yearEntries);
-  const totalDays = daysInTrackingYear();
+  const periodEntries = getEntriesForTrackingPeriod(entries);
+  const cumulative = getCumulativeByDate(periodEntries);
+  const totalDays = daysInTrackingPeriod();
   const points: ChartPoint[] = [];
 
   let lastActual = 0;
-  for (let day = 0; day <= totalDays; day += 1) {
-    const date = new Date(TRACKING_YEAR_START);
-    date.setDate(TRACKING_YEAR_START.getDate() + day);
-    const dateKey = formatDateKey(date);
+  for (let day = 0; day < totalDays; day += 1) {
+    const dateKey = addDays(TRACKING_START_KEY, day);
     if (cumulative.has(dateKey)) {
       lastActual = cumulative.get(dateKey)!;
     }
 
     points.push({
-      day,
+      day: day + 1,
       date: dateKey,
       actual: day === 0 || cumulative.size > 0 ? lastActual : null,
-      ideal: (yearlyTarget / totalDays) * day,
+      ideal: (goalTarget / totalDays) * (day + 1),
     });
   }
 
@@ -153,21 +176,97 @@ export function getProgressPercent(total: number, target: number): number {
   return Math.min(100, (total / target) * 100);
 }
 
-export function isOnTrack(total: number, target: number, asOf = new Date()): boolean {
-  const totalDays = daysInTrackingYear();
-  const elapsedDays = Math.min(
-    totalDays,
-    Math.max(0, dayIndexInTrackingYear(formatDateKey(asOf)) + 1),
-  );
-  const expected = (target / totalDays) * elapsedDays;
-  return total >= expected;
+/** Days of the period that have started, including today (0 before start). */
+export function getElapsedDaysInTrackingPeriod(asOf = new Date()): number {
+  const asOfKey = formatDateKey(asOf);
+  if (asOfKey < TRACKING_START_KEY) return 0;
+  if (asOfKey > TRACKING_END_KEY) return daysInTrackingPeriod();
+  return dayIndexInTrackingPeriod(asOfKey) + 1;
+}
+
+/** Days left in the period, counting today (full length before start). */
+export function getDaysLeftIncludingToday(asOf = new Date()): number {
+  const asOfKey = formatDateKey(asOf);
+  if (asOfKey < TRACKING_START_KEY) return daysInTrackingPeriod();
+  if (asOfKey > TRACKING_END_KEY) return 0;
+  return daysBetween(asOf, TRACKING_END) + 1;
+}
+
+export type PaceStatus = 'not-started' | 'ahead' | 'on-pace' | 'behind' | 'done';
+
+export interface PaceInfo {
+  status: PaceStatus;
+  /** Even daily pace for the whole period (e.g. 25/day). */
+  baselinePerDay: number;
+  /** What's needed per day from today (including today) to hit the goal. */
+  neededPerDay: number;
+  remaining: number;
+  daysLeft: number;
+  /** How far ahead (+) or behind (−) the ideal line, as of the end of yesterday. */
+  difference: number;
+}
+
+/**
+ * Pace is judged against where you should be at the END of yesterday, so you
+ * are not marked "behind" first thing in the morning. If you've already
+ * covered today's share too, you're "ahead".
+ */
+export function getPaceInfo(
+  total: number,
+  target: number,
+  asOf = new Date(),
+): PaceInfo {
+  const totalDays = daysInTrackingPeriod();
+  const baselinePerDay = target / totalDays;
+  const elapsed = getElapsedDaysInTrackingPeriod(asOf);
+  const daysLeft = getDaysLeftIncludingToday(asOf);
+  const remaining = Math.max(0, target - total);
+  const neededPerDay = daysLeft > 0 ? remaining / daysLeft : remaining;
+  const expectedThroughYesterday = baselinePerDay * Math.max(0, elapsed - 1);
+  const expectedThroughToday = baselinePerDay * elapsed;
+  const difference = total - expectedThroughYesterday;
+
+  let status: PaceStatus;
+  if (remaining <= 0) status = 'done';
+  else if (elapsed === 0) status = 'not-started';
+  else if (total >= expectedThroughToday) status = 'ahead';
+  else if (total >= expectedThroughYesterday) status = 'on-pace';
+  else status = 'behind';
+
+  return {
+    status,
+    baselinePerDay,
+    neededPerDay,
+    remaining,
+    daysLeft,
+    difference,
+  };
+}
+
+export function paceStatusLabel(status: PaceStatus): string {
+  switch (status) {
+    case 'done':
+      return 'Goal reached';
+    case 'not-started':
+      return 'Starts soon';
+    case 'ahead':
+      return 'Ahead of pace';
+    case 'on-pace':
+      return 'On pace';
+    case 'behind':
+      return 'Behind pace';
+  }
+}
+
+export function isPaceGood(status: PaceStatus): boolean {
+  return status !== 'behind';
 }
 
 export function getWeeklyFastCount(
   weeklyFast: Record<string, boolean>,
 ): number {
   return Object.entries(weeklyFast).filter(
-    ([weekKey, completed]) => completed && isWithinTrackingYear(weekKey),
+    ([weekKey, completed]) => completed && isWeekWithinTrackingPeriod(weekKey),
   ).length;
 }
 
@@ -175,7 +274,7 @@ export function getHabitCompletionRate(
   habits: Record<string, Record<string, boolean>>,
   habitCount: number,
 ): number {
-  const relevantDates = Object.keys(habits).filter(isWithinTrackingYear);
+  const relevantDates = Object.keys(habits).filter(isWithinTrackingPeriod);
   if (relevantDates.length === 0 || habitCount === 0) return 0;
 
   const completed = relevantDates.reduce((sum, dateKey) => {
@@ -191,30 +290,21 @@ export function getAmountForDate(
   entries: ExerciseEntry[],
   dateKey: string,
 ): number {
-  return entries
+  const total = entries
     .filter((entry) => entry.date === dateKey)
     .reduce((sum, entry) => sum + entry.amount, 0);
+  return Math.round(total * 100) / 100;
 }
 
-export function getElapsedDaysInTrackingYear(asOf = new Date()): number {
-  const asOfKey = formatDateKey(asOf);
-  if (!isWithinTrackingYear(asOfKey)) {
-    if (parseDateKey(asOfKey) < TRACKING_YEAR_START) return 0;
-    return daysInTrackingYear();
-  }
-  return dayIndexInTrackingYear(asOfKey) + 1;
-}
-
-export function getTrackingYearDateKeys(upTo?: string): string[] {
+export function getTrackingPeriodDateKeys(upTo?: string): string[] {
   const keys: string[] = [];
-  const endDate = upTo ? parseDateKey(upTo) : new Date();
-  const cappedEnd =
-    endDate > TRACKING_YEAR_END ? TRACKING_YEAR_END : endDate;
-  const cursor = new Date(TRACKING_YEAR_START);
+  const end = upTo ?? todayKey();
+  const cappedEnd = end > TRACKING_END_KEY ? TRACKING_END_KEY : end;
+  let cursor = TRACKING_START_KEY;
 
   while (cursor <= cappedEnd) {
-    keys.push(formatDateKey(cursor));
-    cursor.setDate(cursor.getDate() + 1);
+    keys.push(cursor);
+    cursor = addDays(cursor, 1);
   }
 
   return keys;
@@ -225,7 +315,7 @@ export function getHabitCheckedCount(
   habitId: string,
   upTo?: string,
 ): number {
-  return getTrackingYearDateKeys(upTo).filter(
+  return getTrackingPeriodDateKeys(upTo).filter(
     (dateKey) => habits[dateKey]?.[habitId] === true,
   ).length;
 }
@@ -240,8 +330,10 @@ export function isHabitOnTrack(
     habitId,
     formatDateKey(asOf),
   );
-  const elapsedDays = getElapsedDaysInTrackingYear(asOf);
-  const expected = (HABIT_YEARLY_GOAL / HABIT_DAYS_IN_YEAR) * elapsedDays;
+  const elapsedDays = getElapsedDaysInTrackingPeriod(asOf);
+  // Judge against the end of yesterday, so today isn't counted until it's done.
+  const expected =
+    (HABIT_GOAL_DAYS / daysInTrackingPeriod()) * Math.max(0, elapsedDays - 1);
   return checked >= expected;
 }
 
@@ -256,21 +348,93 @@ export function getDayHabitCompletionPercent(
   return (checked / habitCount) * 100;
 }
 
-export function getYearToDateHabitCompletionPercent(
+export function getPeriodToDateHabitCompletionPercent(
   habits: Record<string, Record<string, boolean>>,
   habitCount: number,
   asOf = new Date(),
 ): number {
-  const elapsedDays = getElapsedDaysInTrackingYear(asOf);
+  const elapsedDays = getElapsedDaysInTrackingPeriod(asOf);
   if (elapsedDays === 0 || habitCount === 0) return 0;
 
-  const dateKeys = getTrackingYearDateKeys(formatDateKey(asOf));
+  const dateKeys = getTrackingPeriodDateKeys(formatDateKey(asOf));
   const checked = dateKeys.reduce((sum, dateKey) => {
     const dayHabits = habits[dateKey] ?? {};
     return sum + Object.values(dayHabits).filter(Boolean).length;
   }, 0);
 
   return (checked / (elapsedDays * habitCount)) * 100;
+}
+
+// ---------- Streaks ----------
+
+export interface StreakInfo {
+  current: number;
+  best: number;
+}
+
+/**
+ * Consecutive-day streaks inside the tracking period.
+ * The current streak stays alive through today: if today isn't logged yet,
+ * it counts back from yesterday.
+ */
+export function computeStreak(
+  qualifies: (dateKey: string) => boolean,
+  asOf = new Date(),
+): StreakInfo {
+  const today = formatDateKey(asOf);
+  const keys = getTrackingPeriodDateKeys(today);
+
+  let best = 0;
+  let run = 0;
+  for (const key of keys) {
+    if (qualifies(key)) {
+      run += 1;
+      best = Math.max(best, run);
+    } else {
+      run = 0;
+    }
+  }
+
+  let current = 0;
+  let cursor =
+    keys.length > 0 && keys[keys.length - 1] === today && !qualifies(today)
+      ? addDays(today, -1)
+      : today;
+  if (cursor > TRACKING_END_KEY) cursor = TRACKING_END_KEY;
+  while (cursor >= TRACKING_START_KEY && qualifies(cursor)) {
+    current += 1;
+    cursor = addDays(cursor, -1);
+  }
+
+  return { current, best: Math.max(best, current) };
+}
+
+/** Workout streak: days with any exercise logged (net amount above zero). */
+export function getWorkoutStreak(
+  exercises: AppData['exercises'],
+  asOf = new Date(),
+): StreakInfo {
+  const perDay = new Map<string, number>();
+  for (const list of Object.values(exercises)) {
+    for (const entry of list) {
+      perDay.set(entry.date, (perDay.get(entry.date) ?? 0) + entry.amount);
+    }
+  }
+  return computeStreak((key) => (perDay.get(key) ?? 0) > 0.0001, asOf);
+}
+
+/** Habit streak: days with at least the target share (80%) of habits checked. */
+export function getHabitStreak(
+  habits: AppData['habits'],
+  habitCount: number,
+  asOf = new Date(),
+): StreakInfo {
+  return computeStreak(
+    (key) =>
+      getDayHabitCompletionPercent(habits, key, habitCount) >=
+      HABIT_COMPLETION_TARGET,
+    asOf,
+  );
 }
 
 export type { ExerciseId };

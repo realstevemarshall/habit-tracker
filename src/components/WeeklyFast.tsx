@@ -1,8 +1,9 @@
-import type { AppData } from '../data/constants';
+import { WEEKLY_FAST_GOAL, type AppData } from '../data/constants';
 import {
   formatDisplayDate,
   getProgressPercent,
   getWeekKey,
+  getWeeklyFastCount,
   todayKey,
 } from '../utils/dates';
 import { ProgressBar } from './ProgressBar';
@@ -14,7 +15,7 @@ interface WeeklyFastProps {
 
 export function WeeklyFast({ weeklyFast, onToggle }: WeeklyFastProps) {
   const currentWeekKey = getWeekKey(todayKey());
-  const completed = Object.values(weeklyFast).filter(Boolean).length;
+  const completed = getWeeklyFastCount(weeklyFast);
   const isCurrentWeekComplete = Boolean(weeklyFast[currentWeekKey]);
 
   return (
@@ -23,7 +24,7 @@ export function WeeklyFast({ weeklyFast, onToggle }: WeeklyFastProps) {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Weekly Fast</h2>
           <p className="text-sm text-muted">
-            {completed} of 52 fast days this tracking year
+            {completed} of {WEEKLY_FAST_GOAL} fast days by your birthday
           </p>
         </div>
         <p className="text-sm text-muted">
@@ -32,7 +33,7 @@ export function WeeklyFast({ weeklyFast, onToggle }: WeeklyFastProps) {
       </div>
 
       <ProgressBar
-        percent={getProgressPercent(completed, 52)}
+        percent={getProgressPercent(completed, WEEKLY_FAST_GOAL)}
         onTrack={completed > 0}
       />
 

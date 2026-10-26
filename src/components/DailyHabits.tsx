@@ -1,16 +1,19 @@
 import {
   HABITS,
   HABIT_COMPLETION_TARGET,
-  HABIT_DAYS_IN_YEAR,
-  HABIT_YEARLY_GOAL,
+  HABIT_GOAL_DAYS,
+  TRACKING_DAYS,
   type AppData,
 } from '../data/constants';
 import {
+  TRACKING_END_KEY,
+  TRACKING_START_KEY,
+  clampToTrackingPeriod,
   formatDisplayDate,
   formatNumber,
   getDayHabitCompletionPercent,
   getHabitCheckedCount,
-  getYearToDateHabitCompletionPercent,
+  getPeriodToDateHabitCompletionPercent,
   isHabitOnTrack,
   todayKey,
 } from '../utils/dates';
@@ -39,7 +42,7 @@ export function DailyHabits({
     today,
     HABITS.length,
   );
-  const ytdCompletion = getYearToDateHabitCompletionPercent(
+  const ytdCompletion = getPeriodToDateHabitCompletionPercent(
     habits,
     HABITS.length,
   );
@@ -61,9 +64,12 @@ export function DailyHabits({
           <input
             type="date"
             value={selectedDate}
-            min="2026-07-24"
-            max="2027-07-23"
-            onChange={(event) => onDateChange(event.target.value)}
+            min={TRACKING_START_KEY}
+            max={TRACKING_END_KEY}
+            onChange={(event) =>
+              event.target.value &&
+              onDateChange(clampToTrackingPeriod(event.target.value))
+            }
             className="min-h-11 rounded-xl border border-border bg-surface-raised px-3 outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           />
         </label>
@@ -90,14 +96,14 @@ export function DailyHabits({
                   {habit.label}
                 </span>
                 <span className="hidden text-xs tabular-nums text-muted sm:inline">
-                  {checkedCount} of {HABIT_DAYS_IN_YEAR} (goal{' '}
-                  {HABIT_YEARLY_GOAL})
+                  {checkedCount} of {TRACKING_DAYS} days (goal{' '}
+                  {HABIT_GOAL_DAYS})
                 </span>
                 <StatusBadge onTrack={habitOnTrack} />
                 <Tooltip content={habit.description} />
               </label>
               <p className="mt-1 px-1 text-xs tabular-nums text-muted sm:hidden">
-                {checkedCount} of {HABIT_DAYS_IN_YEAR} (goal {HABIT_YEARLY_GOAL})
+                {checkedCount} of {TRACKING_DAYS} days (goal {HABIT_GOAL_DAYS})
                 ·{' '}
                 <span className={habitOnTrack ? 'text-accent' : 'text-muted'}>
                   {habitOnTrack ? 'On track' : 'Off track'}
@@ -128,7 +134,7 @@ export function DailyHabits({
 
         <article className="rounded-xl border border-border bg-surface-raised p-4">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium">Year-to-date completion</h3>
+            <h3 className="text-sm font-medium">Completion so far</h3>
             <StatusBadge onTrack={ytdOnTrack} />
           </div>
           <p className="mb-2 text-2xl font-semibold tabular-nums">

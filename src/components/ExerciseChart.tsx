@@ -53,7 +53,7 @@ export function ExerciseChart({ data, unit }: ExerciseChartProps) {
               return point?.date ?? '';
             }}
             formatter={(value: number, name: string) => [
-              `${formatNumber(value, name === 'Ideal pace' ? 0 : 0)} ${unit}`,
+              `${formatNumber(value, unit === 'mi' ? 1 : 0)} ${unit}`,
               name,
             ]}
           />
@@ -63,7 +63,7 @@ export function ExerciseChart({ data, unit }: ExerciseChartProps) {
           <Line
             type="monotone"
             dataKey="ideal"
-            name="Ideal pace"
+            name="Even pace"
             stroke="#737373"
             strokeDasharray="6 4"
             dot={false}

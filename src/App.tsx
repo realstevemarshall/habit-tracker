@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { EXERCISES, type ExerciseId } from './data/constants';
 import { useAppData } from './hooks/useAppData';
-import { todayKey } from './utils/dates';
+import { clampToTrackingPeriod, todayKey } from './utils/dates';
+import { BackupControls } from './components/BackupControls';
 import { Dashboard } from './components/Dashboard';
 import { DailyHabits } from './components/DailyHabits';
 import { ExerciseTab } from './components/ExerciseTab';
@@ -9,9 +10,11 @@ import { QuarterlyFasts } from './components/QuarterlyFasts';
 import { WeeklyFast } from './components/WeeklyFast';
 
 export default function App() {
-  const { data, updateData } = useAppData();
+  const { data, updateData, replaceData } = useAppData();
   const [activeExercise, setActiveExercise] = useState<ExerciseId>('pushups');
-  const [habitDate, setHabitDate] = useState(todayKey());
+  const [habitDate, setHabitDate] = useState(() =>
+    clampToTrackingPeriod(todayKey()),
+  );
 
   const activeConfig = EXERCISES.find(
     (exercise) => exercise.id === activeExercise,
@@ -130,6 +133,8 @@ export default function App() {
           quarterlyFasts={data.quarterlyFasts}
           onUpdate={updateQuarterlyFast}
         />
+
+        <BackupControls data={data} onImport={replaceData} />
       </main>
     </div>
   );
