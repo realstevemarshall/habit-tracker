@@ -22,9 +22,13 @@ export interface ExerciseConfig {
   id: ExerciseId;
   label: string;
   shortLabel: string;
-  yearlyTarget: number;
-  quickAdd: number;
+  /** Total to reach by the end of the tracking period. */
+  goalTarget: number;
+  /** Quick-add button sizes, smallest first. */
+  quickAdd: number[];
   unit: string;
+  /** Decimal places to show (miles use 1). */
+  decimals: number;
 }
 
 export interface HabitDefinition {
@@ -39,46 +43,78 @@ export interface QuarterlyFastWindow {
   month: string;
 }
 
-export const TRACKING_YEAR_START = new Date(2026, 6, 24);
-export const TRACKING_YEAR_END = new Date(2027, 6, 23);
+// Tracking period: Oct 27, 2026 through the day before the 50th birthday.
+// Everything else (period length, daily pace, date-picker limits, labels)
+// is derived from these dates, so change them here only.
+export const TRACKING_START = new Date(2026, 9, 27);
+export const TRACKING_END = new Date(2027, 6, 23);
 export const BIRTHDAY_50 = new Date(2027, 6, 24);
-export const STORAGE_KEY = 'habit-tracker-data-v1';
-export const HABIT_DAYS_IN_YEAR = 365;
-export const HABIT_YEARLY_GOAL = 300;
+
+/** Number of days in the tracking period, inclusive (270). */
+export const TRACKING_DAYS =
+  Math.round(
+    (Date.UTC(
+      TRACKING_END.getFullYear(),
+      TRACKING_END.getMonth(),
+      TRACKING_END.getDate(),
+    ) -
+      Date.UTC(
+        TRACKING_START.getFullYear(),
+        TRACKING_START.getMonth(),
+        TRACKING_START.getDate(),
+      )) /
+      (24 * 60 * 60 * 1000),
+  ) + 1;
+
+// v2 = fresh start on Oct 27, 2026. Old v1 data is left untouched in the
+// browser under 'habit-tracker-data-v1'.
+export const STORAGE_KEY = 'habit-tracker-data-v2';
+
+/** Percent of days each habit should be done (80%). */
 export const HABIT_COMPLETION_TARGET = 80;
+/** Days per habit to hit by the birthday: 80% of 270 = 216. */
+export const HABIT_GOAL_DAYS = Math.round(
+  (TRACKING_DAYS * HABIT_COMPLETION_TARGET) / 100,
+);
+/** Weekly fast days to hit by the birthday (one per week, 39). */
+export const WEEKLY_FAST_GOAL = Math.ceil(TRACKING_DAYS / 7);
 
 export const EXERCISES: ExerciseConfig[] = [
   {
     id: 'pushups',
     label: 'Push-ups',
     shortLabel: 'Push-ups',
-    yearlyTarget: 18000,
-    quickAdd: 5,
+    goalTarget: 6750, // 25 per day
+    quickAdd: [5, 10, 25],
     unit: 'reps',
+    decimals: 0,
   },
   {
     id: 'situps',
     label: 'Sit-ups',
     shortLabel: 'Sit-ups',
-    yearlyTarget: 18000,
-    quickAdd: 5,
+    goalTarget: 6750, // 25 per day
+    quickAdd: [5, 10, 25],
     unit: 'reps',
+    decimals: 0,
   },
   {
     id: 'pullups',
     label: 'Pull-ups',
     shortLabel: 'Pull-ups',
-    yearlyTarget: 2000,
-    quickAdd: 5,
+    goalTarget: 1480, // previous 2,000/yr pace prorated to 270 days
+    quickAdd: [5, 10, 25],
     unit: 'reps',
+    decimals: 0,
   },
   {
     id: 'miles',
     label: 'Miles',
     shortLabel: 'Miles',
-    yearlyTarget: 750,
-    quickAdd: 1,
+    goalTarget: 540, // 2 per day
+    quickAdd: [0.5, 1, 2],
     unit: 'mi',
+    decimals: 1,
   },
 ];
 
@@ -142,7 +178,6 @@ export const HABITS: HabitDefinition[] = [
 ];
 
 export const QUARTERLY_FASTS: QuarterlyFastWindow[] = [
-  { id: '2026-08', label: 'August 2026', month: 'August 2026' },
   { id: '2026-11', label: 'November 2026', month: 'November 2026' },
   { id: '2027-02', label: 'February 2027', month: 'February 2027' },
   { id: '2027-05', label: 'May 2027', month: 'May 2027' },

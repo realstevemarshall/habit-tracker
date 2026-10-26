@@ -24,7 +24,7 @@ export function QuarterlyFasts({
           Quarterly 96-Hour Fasts
         </h2>
         <p className="text-sm text-muted">
-          {completedCount} of 4 completed this tracking year
+          {completedCount} of {QUARTERLY_FASTS.length} completed by your birthday
         </p>
       </div>
 
