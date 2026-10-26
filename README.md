@@ -53,10 +53,18 @@ npm run build
 npm run preview
 ```
 
+## Live site (GitHub Pages)
+
+The built app is published from the `gh-pages` branch to:
+
+**https://realstevemarshall.github.io/habit-tracker/**
+
+To update the live site after changes: `npm run build`, then publish the `dist/` folder to the `gh-pages` branch.
+
+Production builds use the `/habit-tracker/` base path (set in `vite.config.ts`); `npm run dev` still serves from `http://localhost:5173/`.
+
 ## Installing on a phone
 
-Phones only install web apps served over **HTTPS**, so the built `dist/` folder has to be hosted somewhere (for example GitHub Pages, Netlify, or Vercel). Then open the site on the phone and choose **Share → Add to Home Screen** (iPhone, Safari) or **Install app** (Android, Chrome).
-
-If hosting under a sub-path such as `https://<user>.github.io/habit-tracker/`, set `base: '/habit-tracker/'` in `vite.config.ts` first.
+Open https://realstevemarshall.github.io/habit-tracker/ on the phone, then choose **Share → Add to Home Screen** (iPhone, Safari) or **Install app** (Android, Chrome). It works offline after that.
 
 Note: data saved on the phone is separate from data in your computer's browser — use Export/Import to move it.
